@@ -3,7 +3,7 @@
 $(function() {
 
     /* Check version */
-    var VERSION = "5";
+    var VERSION = "6";
     if(window.localStorage.ss_version !== VERSION) {
         delete window.localStorage.answers;
         delete window.localStorage.ss_page;
@@ -29,14 +29,14 @@ $(function() {
         page: window.localStorage.ss_page || 1,
         item: 0,
         answers:  parseArray(window.localStorage.answers),
-        api: 'http://api.stackexchange.com/2.1/',
+        api: '//api.stackexchange.com/2.1/',
         stop: false,
         reset: function() {
             _.item = 0;
             $('#output').val('');
             $('#logger').empty().append($('<div>', {class: 'oc', text: 'output console'}));
             $('#sort').attr('disabled', false).text('Sort');
-            $('#done').hide();
+            $('.done').hide();
         },
         logger: function(text, class_suffix, to_append) {
             var $div = $('<div>', {
@@ -68,15 +68,15 @@ $(function() {
             }
             _.logger("Fetching page " + _.page + "...", "trying");
 
-            var common_url = '&pagesize=100&order=desc&site=stackoverflow&todate=1363473554';
+            var common_url = '&pagesize=100&order=desc&site=stackoverflow&todate=1363060800';
             var question_url = _.api + 'questions?sort=activity&tagged=sort;javascript&page=' + _.page + common_url;
 
             // Tried using Search; more results could be run but fewer good results were returned
             //var question_url = _.api + 'search/advanced?sort=votes&accepted=True&notice=False&tagged=javascript&title=sort&page=' + _.page + common_url;
 
-            $.get(question_url, function(data_questions) {
+            $.getJSON(question_url, function(data_questions) {
                 var answer_ids = [];
-                $.each(data_questions.items, function(k, v) {
+                $.each(data_questions['items'], function(k, v) {
                     if(v.accepted_answer_id) {
                         answer_ids.push(v.accepted_answer_id);
                     }
@@ -84,9 +84,9 @@ $(function() {
 
                 var answer_url = _.api + 'answers/' + answer_ids.join(';') + '?sort=activity&filter=!9hnGsyXaB' + common_url;
 
-                $.get(answer_url, function(data_answers) {
+                $.getJSON(answer_url, function(data_answers) {
                     _.logger("Answers downloading, ready to run.", "success");
-                    $.each(data_answers.items, function(k, v){
+                    $.each(data_answers['items'], function(k, v){
                         _.answers.push({
                             'answer_id': v.answer_id,
                             'question_id': v.question_id,
@@ -122,7 +122,7 @@ $(function() {
             }
 
             var answer_id = _.answers[_.item].answer_id;
-            $('#done').hide();
+            $('.done').hide();
             _.wait(true);
 
             // Output!
@@ -161,6 +161,9 @@ $(function() {
                 code_sample.indexOf("$(") >= 0 ||
                 code_sample.indexOf("_.") >= 0 ||
                 code_sample.indexOf("Backbone") >= 0 ||
+                code_sample.indexOf("localStorage") >= 0 ||
+                code_sample.indexOf("src") >= 0 || //Makes it hard to inject scripts
+                code_sample.match(/get|post|XMLHttp/i) || //hinder AJAX
                 code_sample.indexOf("new Date") >= 0
             ) {
                 _.was_error("Contained potentially bad code");
@@ -199,11 +202,16 @@ $(function() {
                 if(value && typeof value === 'object' && Object.keys(value).length > 0) {
                     $('#output').val(output);
                     _.logger("Your array was sorted!", "success");
+
+                    var answer_id = _.answers[_.item].answer_id;
+                    var link = _.answers[_.item].link;
+                    $('#answer-used a').attr({'href': link}).text(answer_id);
+
                     $('#sort').attr('disabled', false).text('Sort Again');
                     _.wait(false);
                     _.item++;
                     setTimeout(function() {
-                        $('#done').fadeIn();
+                        $('.done').fadeIn();
                     }, 400);
                 } else {
                     _.was_error("Didn't return a value.");
